@@ -13,6 +13,8 @@ def load_data(filename,num):
 	count = 0 # 统计有多少个数据点
 	point_list = []
 
+	x_list = []
+	y_list = []
 	while True:
 		line = file.readline()
 		if not line:
@@ -23,12 +25,14 @@ def load_data(filename,num):
 			str_temp = line.encode("utf-8").split()
 			lat = str_temp[2] # y 轴
 			lon = str_temp[3] # x 轴
-			point = Point(float(lon),float(lat))
-			point_list.append(point)
+			x_list.append(lon)
+			y_list.append(lat)
+			# point = Point(float(lon),float(lat))
+			# point_list.append(point)
 		count = count + 1
 	logging.warning("共读取 %s 个点" % count)
-	return count,point_list
-
+	# return count,point_list
+	return x_list,y_list
 def write_data(filename,content):
 	with open(filename,'a') as f:
 		f.write(str(content)+"\n")

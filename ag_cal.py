@@ -10,7 +10,7 @@ import logging.handlers
 import logging
 from laplace import cal_abs_rate
 from load_data import write_data
-from config import e,res_num,read_num,query_square,origin_square
+from config import e,res_num,read_num,test_query_square,origin_square
 """
 日志
 """
@@ -216,7 +216,7 @@ def search_square_actual_point_num(x1,x2,y1,y2,point_list):
 			count  = count + 1
 	return count
 
-def main():
+def main(query_square):
 
 	# 读取样本数据 filename样本文件名称，num 读取行数
 	count,point_list = count_point("simple.txt",read_num)
@@ -260,10 +260,10 @@ def main():
 	# logging.warning( "第二次拉普拉斯噪声:%s" % result_laplace)
 
 	# 计算查询区域的点的个数  拉普拉斯
-	laplace_num = search_square_laplace_point_num(query_square[0],query_square[1],query_square[2],query_square[3],result_laplace1)
+	laplace_num = search_square_laplace_point_num(query_square.x1,query_square.x2,query_square.y1,query_square.y2,result_laplace1)
 	logging.warning("拉普拉斯-查询区域点个数：%s" % laplace_num)
 	# 计算查询区域实际点的个数
-	act_num = search_square_actual_point_num(query_square[0],query_square[1],query_square[2],query_square[3],point_list)
+	act_num = search_square_actual_point_num(query_square.x1,query_square.x2,query_square.y1,query_square.y2,point_list)
 	logging.warning("实际-查询区域点个数：%s" % act_num)
 	return laplace_num,act_num,count
 
@@ -271,18 +271,26 @@ def cal_ag():
 	start_temp = time.time()
 	starttime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_temp))
 	logging.warning("Start loading data,  %s" % starttime)
-	result = []
-	for i in range(0, res_num):
-		laplace_num, act_num, count = main()
-		RE = cal_abs_rate(laplace_num, act_num, count)
-		write_data("ag_result.txt", RE)
-		result.append(RE)
+	laplace_num, act_num, count = main(test_query_square)
+	RE = cal_abs_rate(laplace_num, act_num, count)
 	end_temp = time.time()
 	endtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_temp))
 	logging.warning("End loading data...,  %s" % endtime)
 	logging.warning("共花费时间：%s" % (end_temp - start_temp))
-	return result
+
+def cal_ag_param(param):
+	query_square = []
+	query_square.append(param.x1)
+	query_square.append(param.x2)
+	query_square.append(param.y1)
+	query_square.append(param.y2)
+	laplace_num, act_num, count = main(query_square)
+	RE = cal_abs_rate(laplace_num, act_num, count)
+
+	return RE
+
 if __name__ == '__main__':
 	cal_ag()
+	# cal_ag_param()
 
 

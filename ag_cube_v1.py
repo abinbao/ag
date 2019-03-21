@@ -24,13 +24,13 @@ from util import cal_grid_m2,\
 from gen_log import logging
 from load_data import load_data,write_data
 from laplace import cal_abs_rate
-from config import read_num,query_square,res_num,origin_square,e
+from config import read_num,test_query_square,res_num,origin_square,e
 
 # 主函数
-def main():
+def main(param,count,point_list):
 
 	# 加载经纬度集合 count:加载点的个数  point_list:点的集合
-    count,point_list = load_data("simple.txt",read_num)
+    # count,point_list = load_data("simple.txt",read_num)
 
     square_list = [] # 区域集合
 
@@ -51,13 +51,26 @@ def main():
 	# 统计第二次划分网络各个区域中的个数
     for item in square_list:
 		cal_point_num(item.square_col,point_list)
+    logging.warning("=========== Starting AG ===========")
+    AG_count_laplace_num = {"num":0}
+    for item in square_list:
+        if len(item.square_col) == 0:
+			search_square_laplace_point_num(param.x1, param.x2, param.y1, param.y2, item, AG_count_laplace_num, param)
+        else:
+            for ii in item.square_col:
+            	search_square_laplace_point_num(param.x1, param.x2, param.y1, param.y2, ii, AG_count_laplace_num, param)
 
+    AG_act_num = search_square_actual_point_num(param.x1, param.x2, param.y1, param.y2, point_list)
+    logging.warning("AG----actual point number is:  %s" % AG_act_num)
+    logging.warning("AG----add laplace point number is:  %s" % AG_count_laplace_num["num"])
+
+    logging.warning("========== Starting AG_CUBE =========")
 	# 计算 H 判断区域是否需要继续划分
     for attr1 in square_list:
 		for attr2 in attr1.square_col:
 			# 划分网格
-			if len(attr2.square_col) == 0:
-				continue
+			# if len(attr2.square_col) == 0:
+			# 	continue
 			divide_grid2(attr2)
 			# 统计各个网格的分割区域个数
 			cal_point_num(attr2.square_col, point_list)
@@ -75,43 +88,50 @@ def main():
 				recursion_merge(attr2.square_D2,point_list)
 			else:
 				attr2.square_col = None
-
     # 计算查询区域的点的个数  拉普拉斯
     count_num_square = 0
     count_laplace_num = {"num":0}
     for item in square_list:
         if len(item.square_col) == 0:
-            count_num_square = count_num_square + 1
+			search_square_laplace_point_num(param.x1, param.x2, param.y1, param.y2, item, count_laplace_num, param)
         else:
             for attr1 in item.square_col:
-                search_square_laplace_point_num(query_square[0], query_square[1], query_square[2], query_square[3], attr1,count_laplace_num)
+                search_square_laplace_point_num(param.x1, param.x2, param.y1, param.y2, attr1,count_laplace_num,param)
                 count_num_square = count_num_square + 1
         if count_num_square % 10 == 0:
-			logging.warning("已统计区域个数为：%s" % count_num_square)
+			pass
+			# logging.warning("已统计区域个数为：%s" % count_num_square)
 
     # ？
-    logging.warning("拉普拉斯-查询区域点个数：%s" % count_laplace_num["num"])
+    logging.warning("AG_CUBE----add laplace point number is:  %s" % count_laplace_num["num"])
     # 计算查询区域实际点的个数
-    act_num = search_square_actual_point_num(query_square[0], query_square[1], query_square[2], query_square[3], point_list)
-    logging.warning("实际-查询区域点个数：%s" % act_num)
+    # act_num = search_square_actual_point_num(param.x1, param.x2, param.y1, param.y2, point_list)
+    logging.warning("AG_CUBE----actual point number is:  %s" % AG_act_num)
+    logging.warning("查询区域范围：x1-x2:%s-%s,y1-y2:%s-%s" % (param.x1, param.x2, param.y1, param.y2))
 
-    return count_laplace_num["num"],act_num,count
 
+    return count_laplace_num["num"],AG_act_num,count
+
+# 获取多次循环的相对误差列表
 def cal_ag_cube():
 	start_temp = time.time()
 	starttime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_temp))
 	logging.warning("Start loading data,  %s" % starttime)
-	result = []
-	for i in range(0, res_num):
-		laplace_num, act_num, count = main()
-		RE = cal_abs_rate(laplace_num, act_num, count)
-		write_data("ag_cube_result.txt", RE)
-		result.append(RE)
-		logging.warning("第 %s 次运行 函数：AG_CUBE." % (i+1))
+	count, point_list = load_data("simple.txt", read_num)
+	laplace_num, act_num, count = main(test_query_square,count, point_list)
+	RE = cal_abs_rate(laplace_num, act_num, count)
+	# AG_RE = cal_abs_rate(AG_laplace_num, AG_act_num, count)
 	end_temp = time.time()
 	endtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_temp))
 	logging.warning("共花费时间：%s" % (end_temp - start_temp))
-	return result
+# 带参数
+def cal_ag_cube_param(param,countNum,point_list):
+
+	laplace_num, act_num, count  = main(param,countNum,point_list)
+	AG_CUBE_RE = cal_abs_rate(laplace_num, act_num, count)
+	# AG_RE = cal_abs_rate(AG_laplace_num,AG_act_num,count)
+	logging.warning("查询区域：x1-x2:%s-%s, y2-y2:%s-%s === AG_CUBE-相对误差为：%s" % (param.x1,param.x2,param.y1,param.y2,AG_CUBE_RE))
+	return AG_CUBE_RE
 
 if __name__ == '__main__':
 	cal_ag_cube()

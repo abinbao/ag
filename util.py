@@ -7,7 +7,7 @@ from base import Point,Square,Line_x,Line_y
 import math
 from laplace import lapalce_grid_point_num,laplace_noise
 from gen_log import logging
-from config import res_num,read_num,query_square,e
+from config import res_num,read_num,test_query_square,e
 
 # 生成 x 轴的分割线
 def genrate_line_x(param):
@@ -17,7 +17,7 @@ def genrate_line_x(param):
 	y2 = param.y2
 	# 参数 N a e c
 	m2 = cal_grid_m2(float(param.count), 0.5, 0.1, 5)
-	if m2 == 0:
+	if m2 == 0 or m2 == 1:
 		return
 	x_unit = float(x2 - x1) / float(m2)
 	x_bottom = x1
@@ -25,6 +25,7 @@ def genrate_line_x(param):
 		line_x = Line_x(x_bottom+x_unit,y1,y2)
 		param.line_x_list.append(line_x)
 		x_bottom = x_bottom+x_unit
+
 
 
 # 生成 y 轴的分割线
@@ -35,7 +36,7 @@ def genrate_line_y(param):
 	y2 = param.y2
 	# 参数 N a e c
 	m2 = cal_grid_m2(float(param.count), 0.5, 0.1, 5)
-	if m2 == 0:
+	if m2 == 0 or m2 == 1:
 		return
 	y_unit = float(y2 - y1) / float(m2)
 
@@ -96,6 +97,7 @@ def cal_point_num(square_list,point_list):
 				item.count = item.count + 1
 		item.count_laplace = lapalce_grid_point_num(item.count)
 
+
 """
 第二次划分网格
 
@@ -109,7 +111,7 @@ def divide_grid2(item):
 	y2 = item.y2
 	# 参数 N a e c
 	m2 = cal_grid_m2(float(item.count),0.5,0.1,5)
-	if m2 == 0:
+	if m2 == 0 or m2 == 1:
 		pass
 	else:
 		x_unit = float(x2-x1)/float(m2)
@@ -139,6 +141,7 @@ def cal_valueOfH(a,param):
 		temp = temp + abs(float(item.count)-float(param.avg))
 	# 如果区域的 H 值小于 给定的阈值 a, 那么就不需要再进行分割 flag = False (默认为False)
 	# 如果区域的 H 值大于 给定的阈值 a, 那么就继续分割 flag = True
+	# logging.warning("阈值:%s " % temp)
 	if temp > a:
 		param.flag = True
 
@@ -151,22 +154,25 @@ def find_gold_line(param,point_list):
 	if len(param.line_x_list) == 0 or len(param.line_y_list) == 0:
 		pass
 	else:
+		# 初始的x轴，y轴分割线
 		x_gold_line = param.line_x_list[0]
 		y_gold_line = param.line_y_list[0]
+		# x轴，y轴分割线的计算值
 		x_value = cal_square_x(x_gold_line,param,point_list)
 		y_value = cal_square_y(y_gold_line,param,point_list)
-
+		# 遍历 x 轴的分割线线找出x轴分割线里的最优分割线，和计算值
 		for i in range(1,len(param.line_x_list)):
-			temp_value = cal_square_x(i,param,point_list)
+			temp_value = cal_square_x(param.line_x_list[i],param,point_list)
 			if temp_value < x_value:
-				x_gold_line = i
+				x_gold_line = param.line_x_list[i]
 				x_value = temp_value
-
+		# 同上
 		for i in range(1,len(param.line_y_list)):
-			temp_value = cal_square_y(i,param,point_list)
+			temp_value = cal_square_y(param.line_y_list[i],param,point_list)
 			if temp_value < y_value:
-				y_gold_line = i
+				y_gold_line = param.line_y_list[i]
 				y_value = temp_value
+		# 比较 最优的 x轴 分割线 和 y轴 分割线，找出本查询区域的最优分割线
 		if x_value <= y_value:
 			param.gold_line = x_gold_line
 			squareD1 = Square(param.x1,x_gold_line.x1,param.y1,param.y2,0)
@@ -175,7 +181,7 @@ def find_gold_line(param,point_list):
 			param.square_D2 = squareD2
 		else:
 			param.gold_line = y_gold_line
-			squareD1 = Square(param.x1,param.x2,param,y1,y_gold_line.y1,0)
+			squareD1 = Square(param.x1,param.x2,param.y1,y_gold_line.y1,0)
 			squareD2 = Square(param.x1,param.x2,y_gold_line.y1,param.y2,0)
 			param.square_D1 = squareD1
 			param.square_D2 = squareD2
@@ -195,24 +201,33 @@ def cal_square_x(line,square,point_list):
 
 	squares_D1 = 0 # D1 中划分的区域的个数 n1
 	squares_D2 = 0 # D2 中划分的区域的个数 n2
+	if isinstance(line, int):
+		pass
+	else:
+		# 遍历 样本集中点
+		for point in point_list:
+			# print square.x1,line.x1
+			# 如果 点的x轴坐标大于查询区域的 x坐标 同时点的x 坐标小于x轴分割线的x坐标，y轴坐标在查询区域内
+			# 那么，这个点就属于 points_D1 区域
+			if point.x >= square.x1 and point.x <= line.x1 and point.y >= square.y1 and point.y <= square.y2:
+				points_D1 = points_D1 + 1
+		# points_D2 区域的点的个数就是查询区域点的个数减去 points_D1 中点的个数
+		points_D2 = square.count - points_D1
+		# 遍历查询区域可以分割的区域集合
+		for item in square.square_col:
+			# 如果子区域的x轴坐标小于分割线的x坐标，同时大于查询区域的x轴坐标，同时y轴坐标在查询区域范围内
+			# 那么 区域 squares_D1 包含的子区域的个数为squares_D1
+			if item.x2 <= line.x1 and item.x1 >= square.x1 and item.y1 >= square.y1 and item.y2 <= square.y2:
+				squares_D1 = squares_D1 + 1
+		# 同上
+		squares_D2 = len(square.square_col) - squares_D1
+		# 计算 x 分割线的价值
+		value = points_D1*squares_D1 + points_D2*squares_D2
 
-	for point in point_list:
-		if point.x >= square.x1 and point.x <= line.x1 and point.y >= square.y1 and point.y <= square.y2:
-			points_D1 = points_D1 + 1
-	points_D2 = square.count - points_D1
-
-	for item in square.square_col:
-		if item.x2 <= line.x1 and item.x1 >= square.x1 and item.y1 >= square.y1 and item.y2 <= square.y2:
-			squares_D1 = squares_D1 + 1
-
-	squares_D2 = len(square.square_col) - square.square_col
-
-	value = points_D1*squares_D1 + points_D2*squares_D2
-
-	return value
+		return value
 
 # 遍历 y 线
-
+# y 轴 同上
 def cal_square_y(line,square,point_list):
 
 	points_D1 = 0  # D1 区域中点的个数 v1
@@ -220,21 +235,23 @@ def cal_square_y(line,square,point_list):
 
 	squares_D1 = 0  # D1 中划分的区域的个数 n1
 	squares_D2 = 0  # D2 中划分的区域的个数 n2
+	if isinstance(line, int):
+		pass
+	else:
+		for point in point_list:
+			if point.y >= line.y1 and point.y <= square.y2 and point.x >= square.x1 and point.x <= square.x2:
+				points_D1 = points_D1 + 1
+		points_D2 = square.count - points_D1
 
-	for point in point_list:
-		if point.y1 >= square.y1 and point.y1 <= line.y1 and point.x1 >= square.x1 and point.x2 <= square.x2:
-			points_D1 = points_D1 + 1
-	points_D2 = square.count - points_D1
+		for item in square.square_col:
+			if item.x1 >= square.x1 and item.x2 <= square.x2 and item.y1 >= line.y1 and item.y2 <= line.y1:
+				squares_D1 = squares_D1 + 1
 
-	for item in square.square_col:
-		if item.x1 >= square.x1 and item.x2 <= square.x2 and item.y1 >= square.y1 and item.y2 <= line.y1:
-			squares_D1 = squares_D1 + 1
+		squares_D2 = len(square.square_col) - squares_D1
 
-	squares_D2 = len(square.square_col) - square.square_col
+		value = points_D1*squares_D1 + points_D2*squares_D2
 
-	value = points_D1*squares_D1 + points_D2*squares_D2
-
-	return value
+		return value
 
 """
 遍历 and 合并 
@@ -271,7 +288,7 @@ def recursion_print(square_list):
 x1 x2 y1 y2 查询区域
 result_laplace 加入拉普拉斯噪声的各个区域中包含点的个数
 """
-def search_square_laplace_point_num(x1,x2,y1,y2,item,count):
+def search_square_laplace_point_num(x1,x2,y1,y2,item,count,param):
 
 	if(item.flag == False):
 		x3 = float(item.x1)
@@ -283,6 +300,7 @@ def search_square_laplace_point_num(x1,x2,y1,y2,item,count):
 		# 1. 全部在区域中
 		if x3 >=x1 and x4<=x2 and y3>=y1 and y4 <= y2:
 			count["num"] = count["num"] + item.count_laplace
+			# print "全部在区域中"
 		# 2. 左上角
 		elif x3 <=x1 and x4 >=x1 and x4 <=x2 and y3 >= y1 and y3 <=y2 and y4 >=y2:
 			rate = (x4-x1)*(y2-y3)/square
@@ -301,7 +319,7 @@ def search_square_laplace_point_num(x1,x2,y1,y2,item,count):
 			count["num"] = count["num"] + item.count_laplace*rate
 		# 6. 右下角
 		elif x3 >= x1 and x3 <= x2 and x4 >= x2 and y3 <= y1 and y4 >= y1 and y4 <= y2:
-			rate = (x2-x3)*(y4-y1)/suqare
+			rate = (x2-x3)*(y4-y1)/square
 			count["num"] = count["num"] + item.count_laplace*rate
 		# 7. 右边
 		elif x3 >= x1 and x3 <= x2 and x4 >= x2 and y3>= y1 and y4 <= y2:
@@ -315,10 +333,14 @@ def search_square_laplace_point_num(x1,x2,y1,y2,item,count):
 		elif x3 >= x1 and x4 <= x2 and y3>=y1 and y3 <=y2 and y4 >= y2:
 			rate = (x4-x3)*(y2-y3)/square
 			count["num"] = count["num"] + item.count_laplace*rate
-
+		else:
+			pass
 	else:
 		for ii in item.square_col:
-			search_square_laplace_point_num(query_square[0], query_square[1], query_square[2], query_square[3], ii, count)
+			# print "递归查询"
+			search_square_laplace_point_num(param.x1, param.x2, param.y1, param.y2, ii, count,param)
+
+	# print item.count_laplace,item.count
 
 # 查询区域 实际 个数
 def search_square_actual_point_num(x1,x2,y1,y2,point_list):

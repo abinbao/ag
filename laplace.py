@@ -18,6 +18,7 @@ def lapalce_grid_point_num(param):
 # 计算相对误差
 def cal_abs_rate(Q,A,Num):
     result = abs(Q-A)/max(A,0.001*Num)
+    # result = abs(Q-A)
     return result
 
 if __name__ == "__main__":
